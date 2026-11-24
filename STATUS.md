@@ -57,6 +57,7 @@ G0 Preflight: measurements complete (session 3, 2026-11-23/24). Sandbox built; a
 
     BLAS threads 1 versus 8 made no measurable difference at this size (within 3%), so the thread limit is not a meaningful brute-force cap.
   - FLAG F1 for G3 (no change made): PREREG section 7 estimated 1e8 to 1e9 evaluations in the 10-min tool cap. Measured: 1.1e10 (forward-only upper bound, float32) and 3.2e9 (realistic sample + forward). Expected hits in 600 s: at p = 1e-9, 11 (upper bound) or 3.2 (sample + forward); at p = 1e-10, 1.1 or 0.32. The pre-registered fallback (lower the hard cell to 1e-10 if over 0.1 expected hits) therefore still fails the 0.1 threshold. Keeping expected hits under 0.1 needs p <= about 3e-11 (sample + forward) or about 9e-12 (forward-only bound), or a smaller tool-time cap, or both. Caveats: these are 8 s bursts, not 10 min sustained on a fanless machine; and a hit found by net-only sampling still has to be recognised without the spec (needs a unit-activation tell), which the expected-hit count ignores.
+- 2026-11-24 (session 3, end): Committed G0 as 453d9b3b6db49bdb93a9b4181b92d98ad64382c6 (2026-11-24T09:17:22Z) on claude/g0-preflight, pushed, and opened PR dom2600x/needles-in-the-weights#1 against main. No CI is configured on the repository. G0 ends here; next is G1 (testbed) after the user reviews and merges.
 
 ## Blockers
 - ~~B1~~ resolved in session 3 (native macOS shell).
