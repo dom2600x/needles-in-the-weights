@@ -9,4 +9,4 @@ Scope is toy one-hidden-layer ReLU networks built by our own generator. No claim
 - `testbed/domain_check.py`: the numerical check behind the ball domain (`python3 testbed/domain_check.py`, needs numpy and scipy).
 - `STATUS.md`: living log.
 
-Status: G0 (preflight) not started. No data collected.
+Status: G0 (preflight) measurements complete; see STATUS.md. No study data collected.
