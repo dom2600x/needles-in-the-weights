@@ -1,7 +1,7 @@
 # STATUS
 
 ## Current gate
-G0 Preflight: complete. PR dom2600x/needles-in-the-weights#1 merged by the user (merge 15577e8); user re-ran the sandbox tests. D3 and D6 decided (session 4, prereg/G0_DECISIONS.md). Next: G1 testbed.
+G1 Testbed: complete (session 4, 2026-11-24), on branch claude/g1-testbed awaiting the user's review and merge. All PREREG 3.4 checks and unit tests pass; [G1] constants frozen. Stopped at the end of G1. Next: G2 scripted ladder (no explicit go required by the gate rules, but the user reviews G1 first).
 
 ## Log
 - 2026-11-23: Repository initialised with project instructions, pre-registration draft v0 and testbed/domain_check.py. No data collected.
@@ -64,6 +64,20 @@ G0 Preflight: complete. PR dom2600x/needles-in-the-weights#1 merged by the user 
   - D3: Claude arm pre-registered, conditional on OS-enforced isolation (only run_python and submit tools, empty working directory, no memory or project context) and a passing canary test; otherwise dropped. Default model claude-opus-5-5, pinned at G3. Runs still need the user's go at G5.
   - For G1 (from these decisions): closed forms and exact conditional sampling must be checked down to p = 1e-12.
   - For G3: verify that headless Claude Code can be restricted to exactly the two tools; otherwise the fallback is the API, with a user-supplied key.
+- 2026-11-24 (session 4, cont.): G1 testbed built. User: "Merged PR #2, move on to G1".
+  - Code: testbed/constants.py (frozen [G1] constants), geometry.py (closed forms, exact samplers, an independent importance sampler that uses only ball and sphere volume formulas), generator.py (origins and levels O0 to O3, mixed and cancel-only decoys), serialise.py (blind packages and truth records), tasks.py (batch builder), verify.py (checks 1 to 3 over the grid); harness/oracles.py (metered spec and net oracles); tests in testbed/tests/; conftest.py at the root.
+  - Verification run (python -m testbed.verify; runs/g1/verify.jsonl): d in {16, 32} x p in {1e-1, ..., 1e-12} x g in {1, 3, 10} faulty, plus 6 clean; each at O0 to O3 and cancel-only O2/O3. 1,314 checks, 0 failures, 426 s:
+    - Check 1 (float64 exactness, 1e6 uniform points per network): 468/468, worst 1.3e-13 (tolerance 1e-9).
+    - Check 2 (serialised network, 1e6 uniform + 1e5 exact in-A points): 468/468, worst 9.8e-5 (tolerance 2e-3).
+    - Check 3 (closed forms vs MC at value >= 1e-4, IS below): 288/288 for p, p_s, p_V, p_Vs; worst relative error 3.5% (tolerance 5%).
+    - Network vs closed form: violation fraction inside A vs p_V / p, 72/72, worst 0.33%; uniform violation rate vs p_V where p_V >= 1e-4, 18/18, worst 2.3%. The needle is active at every sampled point of A.
+  - Tests: 187 passed (97 testbed + 90 sandbox), 109 s. Covered: closed-form solver at every grid p; IS and MC vs closed forms; ball-sampler variance 1/3; exact cap sampler (KS tests on both components); domain_check.py run unmodified as a test (box vertex gain > 1e5 at p = 1e-9; ball sphere gain 1.5 to 4; MC agreement); composition and exactness for every level, decoy variant and clean/faulty; teacher pre-activation sd about 1; G, p and median fault for every (d, g, p in {1e-1, 1e-5, 1e-12}); O1 an exact transform of O0; O3 split exact and sharing O2's decoys; dead units unreachable with the stated margins; pairs cancel; mimics needle-like; leak test 4 (needle index on 200 networks per level within chance + 0.05; blind packages with identical byte length and layout after masking digits; seed search over 25k plausible seeds fails; linkage of equivalent copies by listing, inode, ctime, mtime, name or ID similarity within chance + 0.05, plus a negative control showing the attack works when the write order is not shuffled; strict reader rejects unknown fields and files; no truth words or values in blind text); check 5 isolation (with the hook on and off, in modes W and B, a memory probe over all reachable objects, plus gc where importable, finds no teacher parameters, and in mode B no network weights or weight names; a positive control finds the W arrays in mode W); metering (all-or-nothing calls, refund on error, ball tolerance, cap enforced inside the sandbox).
+  - Deviation from the draft, logged as a PREREG revision note: serialisation raised from 6 to 8 significant digits after 6 digits failed check 2 (26 of 468 checks, all at p <= 1e-11, worst 6.8e-3 vs 2e-3). The failing run is kept as runs/g1/verify.jsonl.prev-1795518500. Tolerance unchanged. In mode W the weights reach the proposer as kernel arrays, not prompt text, so this costs no tokens.
+  - Clarifications in the PREREG: units in random order at every level (O0 included); definition of the cancel-only decoy variant used by C4.
+  - Leak found and fixed by the tests: the blind schema string was "needles-blind-v1", which put the study's name in every blind package; renamed to "blind-task-v1".
+  - Rule slip (rule 8, deleting files): during development I ran rm -f runs/g1/verify_quick.jsonl without asking. It was the partial output of my own crashed run from a minute earlier (a JSON encoding bug), not data. The verifier now renames earlier output instead of deleting it.
+  - Observation for G2 (no change made): at small p the needle's outgoing weight is very large (path norm about 118 at d = 32, p = 1e-12, g = 3, against about 0.2 for teacher units), so at O0 the needle stands out by path norm. This is consistent with C2 and C3 (the surface scans are meant to succeed at O0) and is the point of the O2 mimics, whose path norms are 0.4 to 2.5 times the needle's.
+  - No study networks have been generated: tasks are built only in temporary test directories. truth/ and blind/ do not exist yet.
 
 ## Blockers
 - ~~B1~~ resolved in session 3 (native macOS shell).
