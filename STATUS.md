@@ -1,7 +1,7 @@
 # STATUS
 
 ## Current gate
-G0 Preflight: measurements complete (session 3, 2026-11-23/24). Sandbox built; all 90 escape and control tests pass. G0 code committed on claude/g0-preflight (PR open; the user merges). Stopped at the end of G0 for the user's review. Two findings need decisions at G3 (F1, F2 below).
+G0 Preflight: complete. PR dom2600x/needles-in-the-weights#1 merged by the user (merge 15577e8); user re-ran the sandbox tests. D3 and D6 decided (session 4, prereg/G0_DECISIONS.md). Next: G1 testbed.
 
 ## Log
 - 2026-11-23: Repository initialised with project instructions, pre-registration draft v0 and testbed/domain_check.py. No data collected.
@@ -58,6 +58,12 @@ G0 Preflight: measurements complete (session 3, 2026-11-23/24). Sandbox built; a
     BLAS threads 1 versus 8 made no measurable difference at this size (within 3%), so the thread limit is not a meaningful brute-force cap.
   - FLAG F1 for G3 (no change made): PREREG section 7 estimated 1e8 to 1e9 evaluations in the 10-min tool cap. Measured: 1.1e10 (forward-only upper bound, float32) and 3.2e9 (realistic sample + forward). Expected hits in 600 s: at p = 1e-9, 11 (upper bound) or 3.2 (sample + forward); at p = 1e-10, 1.1 or 0.32. The pre-registered fallback (lower the hard cell to 1e-10 if over 0.1 expected hits) therefore still fails the 0.1 threshold. Keeping expected hits under 0.1 needs p <= about 3e-11 (sample + forward) or about 9e-12 (forward-only bound), or a smaller tool-time cap, or both. Caveats: these are 8 s bursts, not 10 min sustained on a fanless machine; and a hit found by net-only sampling still has to be recognised without the spec (needs a unit-activation tell), which the expected-hit count ignores.
 - 2026-11-24 (session 3, end): Committed G0 as 453d9b3b6db49bdb93a9b4181b92d98ad64382c6 (2026-11-24T09:17:22Z) on claude/g0-preflight, pushed, and opened PR dom2600x/needles-in-the-weights#1 against main. No CI is configured on the repository. G0 ends here; next is G1 (testbed) after the user reviews and merges.
+- 2026-11-24 (session 4): User merged PR #1, re-ran the tests, and delegated D3 and D6 to Claude. Decided both before any study data (no network generated, no auditor run). Full reasoning and rejected alternatives: prereg/G0_DECISIONS.md. Applied to prereg/PREREG_v0_DRAFT.md as a dated revision note and edits to sections 4, 7, 9 and 13. Branch claude/g0-decisions.
+  - D6/F1: hard cell p = 1e-12 (was 1e-9). The bound uses p_s (boundary sampling via random rotations at forward-pass cost) and N = 1.1e10, giving 0.052 expected hits at 1e-12, against 3.9 at the draft's fallback of 1e-10 and 34 at 1e-9. Scripted grid extended to 1e-12. Tool-time cap unchanged.
+  - D6/F2: caps unchanged (30 min, 12 turns, 6,144 tokens per turn, 10 min tool time); 30-min wall-clock named as the binding budget. Added: KV-cache reuse, a warning at 25 min, and a forced final-answer turn (thinking off, 512 tokens, submit only), with outcomes reported with and without forced answers. 92 local runs x 31.5 min = 48 h of the 60 h cap.
+  - D3: Claude arm pre-registered, conditional on OS-enforced isolation (only run_python and submit tools, empty working directory, no memory or project context) and a passing canary test; otherwise dropped. Default model claude-opus-5-5, pinned at G3. Runs still need the user's go at G5.
+  - For G1 (from these decisions): closed forms and exact conditional sampling must be checked down to p = 1e-12.
+  - For G3: verify that headless Claude Code can be restricted to exactly the two tools; otherwise the fallback is the API, with a user-supplied key.
 
 ## Blockers
 - ~~B1~~ resolved in session 3 (native macOS shell).
@@ -65,6 +71,6 @@ G0 Preflight: measurements complete (session 3, 2026-11-23/24). Sandbox built; a
 
 ## Decisions pending from the user
 - ~~D2~~ resolved: installs and downloads work; approved and done in session 3.
-- D3: yes or no on a blind Claude arm.
-- D6: how to handle F1 (brute-force throughput versus hard-cell p) and F2 (wall-clock versus token caps) at G3.
+- ~~D3~~ decided 2026-11-24 (delegated): yes, conditionally; see prereg/G0_DECISIONS.md.
+- ~~D6~~ decided 2026-11-24 (delegated): hard cell p = 1e-12; caps unchanged, with a warning and a forced final turn; see prereg/G0_DECISIONS.md.
 - ~~D5~~ resolved 2026-11-24: user approved committing G0 on branch claude/g0-preflight and opening a PR (the user merges).
