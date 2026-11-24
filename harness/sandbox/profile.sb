@@ -1,0 +1,34 @@
+;; Proposer sandbox (macOS sandbox-exec, SBPL). Deny by default.
+;; @...@ placeholders are filled in by harness/sandbox/host.py with resolved real paths.
+(version 1)
+(deny default)
+
+;; Run only the Python interpreter (no fork: subprocesses, os.system and spawn all fail).
+(allow process-exec (literal "@PY_VENV@") (literal "@PY_REAL@") (literal "@PY_APP@"))
+(allow signal (target self))
+(allow process-info* (target self))
+(allow sysctl-read)
+
+;; Read: OS libraries, the Python install, the venv, the kernel script, and scratch. Nothing else in $HOME.
+(allow file-read*
+  (literal "/")
+  (subpath "/System")
+  (subpath "/usr/lib")
+  (subpath "/usr/share")
+  (subpath "/private/var/db/timezone")
+  (subpath "@PY_HOME@")
+  (subpath "@VENV@")
+  (literal "@KERNEL@")
+  (subpath "@SCRATCH@")
+  (literal "/dev/null")
+  (literal "/dev/urandom")
+  (literal "/dev/random"))
+;; stat() (not listing or reading) on the ancestors of allowed paths, so path resolution works.
+@METADATA_ALLOWS@
+
+;; Write: scratch only.
+(allow file-write*
+  (subpath "@SCRATCH@")
+  (literal "/dev/null"))
+
+;; No network rules: every network operation is denied by (deny default).
