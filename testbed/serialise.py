@@ -146,3 +146,11 @@ def write_manifest(root, out_path):
     with open(out_path, "w") as fh:
         fh.write("\n".join(sorted(lines, key=lambda l: l.split("  ", 1)[1])) + "\n")
     return out_path
+
+
+def serialised_net(net):
+    """The network exactly as a blind package carries it (8 significant digits), without the JSON
+    round trip. Equal to net_from_blind(read_blind(...)) for the same weights."""
+    f = K.SERIAL_FORMAT.format
+    r = lambda a: np.array([float(f(x)) for x in np.asarray(a, dtype=float).ravel()]).reshape(np.shape(a))
+    return Net(r(net.W1), r(net.b1), r(net.v), float(f(net.c)))

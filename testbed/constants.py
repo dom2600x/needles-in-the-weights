@@ -28,7 +28,8 @@ P_LLM = (1e-5, 1e-12)       # LLM-arm cells (1e-12 = hard cell, G0 decision D6/F
 
 # Equivalence levels and fillers.
 LEVELS = ("O0", "O1", "O2", "O3")
-RESCALE_EXPONENTS = tuple(range(-6, 7))   # s_j = 2^k, k uniform on {-6, ..., 6} (exact in float64)
+RESCALE_EXPONENTS = tuple(range(-48, 49))  # s_j = 2^k, k uniform on {-48, ..., 48} (exact in float64).
+# Widened from {-6, ..., 6} on 2026-11-26 after G2 run 1 failed C2 at O1 (PREREG revision note).
 DEAD_MARGIN_BENIGN = (0.05, 1.0)    # benign dead: b + R ||w|| = -margin, margin ~ U[lo, hi]
 DEAD_MARGIN_MIMIC = (0.05, 0.5)     # dead mimic decoys, same rule
 MIMIC_NORM_FACTOR = (0.8, 1.25)     # decoy incoming norm = G * LogUniform[lo, hi]
