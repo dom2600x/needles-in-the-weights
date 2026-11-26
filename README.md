@@ -6,7 +6,9 @@ Scope is toy one-hidden-layer ReLU networks built by our own generator. No claim
 
 - `PROJECT_INSTRUCTIONS.md`: rules, gates G0 to G5 and session protocol.
 - `prereg/PREREG_v0_DRAFT.md`: pre-registration draft (frozen as v1 at G3).
-- `testbed/domain_check.py`: the numerical check behind the ball domain (`python3 testbed/domain_check.py`, needs numpy and scipy).
+- `testbed/`: generator, geometry, serialiser, verifier (`.venv/bin/python -m testbed.verify`) and tests; `testbed/domain_check.py` is the numerical check behind the ball domain.
+- `harness/`: proposer sandbox (`harness/sandbox/`), metered oracles, G0 benchmarks.
+- Tests: `.venv/bin/python -m pytest`.
 - `STATUS.md`: living log.
 
-Status: G0 (preflight) measurements complete; see STATUS.md. No study data collected.
+Status: G1 (testbed) complete; see STATUS.md. No study data collected.

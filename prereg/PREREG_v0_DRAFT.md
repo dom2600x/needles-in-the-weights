@@ -6,6 +6,8 @@
 
 **Revision note (2026-11-24, G0 decisions, before any study data).** No network has been generated and no auditor, scripted or LLM, has run. The only inputs were G0 machine measurements (STATUS.md; runs/g0/). Reasons and alternatives are in prereg/G0_DECISIONS.md. (1) D6/F1: measured sandbox throughput is 1.83e7 evaluations/s, so 1.1e10 in the 10-min tool cap, against the 1e8 to 1e9 estimated here. The fallback written in section 7 (lower the hard cell to 1e-10) does not meet its own 0.1-expected-hit criterion (3.9 expected hits). The hard cell is set to p = 1e-12 (0.05 expected hits on the strongest u-agnostic sampler), and the scripted grid is extended to 1e-12 (sections 4, 7, 9). (2) D6/F2: at 9B speeds the 30-min wall-clock cap binds before the token caps. It stays at 30 min (the 60 h compute cap rules out more) and is named as the binding budget, with a time warning, a forced final-answer turn and KV-cache reuse (section 7). (3) D3: the Claude arm is pre-registered, conditional on operating-system-level isolation, and still needs the user's go at G5 before any run (section 7).
 
+**Revision note (2026-11-24, G1 freeze, before any study data).** The [G1] design constants are fixed (section 13 table; code: testbed/constants.py). No auditor has run; the only data are testbed self-checks (runs/g1/verify.jsonl). Changes found necessary while building and checking the testbed: (1) serialisation precision raised from 6 to 8 significant digits, because 6 digits failed exactness check 2 at p <= 1e-11 (26 of 468 checks; worst deviation 6.8e-3 against the 2e-3 tolerance). The cause is that a thin needle cap needs a large outgoing weight to keep the median fault at 2.0, and decoys copy that scale. Measured worst case: 7 digits 7.3e-4, 8 digits 5.5e-5. The tolerance itself is unchanged; the failing run is kept beside the passing one (runs/g1/verify.jsonl.prev-*). (2) Clarified that every level, O0 included, places units in a uniformly random order; O1 adds a further permutation and the rescaling. Without this the needle's index at O0 would be fixed and would fail leak test 4. (3) Clarified the "cancelling only" decoy variant that prediction C4 refers to: the dead mimics are replaced by further cancelling-pair mimics.
+
 ## 1. Question
 
 When does white-box access (the weights) beat black-box queries at a matched budget for finding, localising and repairing a rare-input fault in a small ReLU network, and which exact function-preserving reparameterisations remove that advantage? Asked of scripted auditors first, then of LLM auditors.
@@ -25,15 +27,15 @@ We claim only the measured comparison in the family defined below. We do not cla
 
 Input x is uniform on the L2 ball of radius R_d = sqrt((d + 2) / 3) in R^d, so each coordinate has variance 1/3, as for Uniform[-1, 1]. d = 32 (primary, R = 3.37) or 16 (scripted only, R = 2.45). The ball is the domain for oracle queries, submitted counterexamples and scoring. One hidden ReLU layer of width H = 96, scalar output: 3,265 weights at d = 32 and 1,729 at d = 16.
 
-Clean function: 24 live teacher units. Incoming weights w_k ~ N(0, sigma^2 / d) per entry, biases b_k ~ N(0, 0.25), outgoing v_k ~ N(0, 1/24), output bias c; sigma is set so pre-activations have standard deviation about 1 [G1]. spec(x) is a callable oracle for the clean function; its source is never shown.
+Clean function: 24 live teacher units. Incoming weights w_k ~ N(0, sigma^2 / d) per entry, biases b_k ~ N(0, 0.25), outgoing v_k ~ N(0, 1/24), output bias c ~ N(0, 0.25); sigma = 1.5, so the pre-activation variance is sigma^2 / 3 + 0.25 = 1 (fixed at G1). spec(x) is a callable oracle for the clean function; its source is never shown.
 
 **Why a ball and not a box (design note).** The first draft used the box [-1, 1]^32. A numerical check (domain_check.py: saddlepoint tail, exact count of the 2^32 sign vertices by meet-in-the-middle, dense random u; it becomes a G1 unit test) showed that the box fails as a testbed. At p = 1e-9 the share of box vertices inside the needle region is p_v = 6e-4 to 8e-4, about 7 x 10^5 times p, so 1,000 random sign vertices hit it with probability about 0.5 and 10^6 spec rows hit it with probability 1; at p = 1e-5, p_v is about 9e-3. A vertex fuzzer would have defeated the "rare" needle at the black-box budget, and p would not have measured difficulty. On the ball, the strongest sampler that does not know u is uniform sampling on the boundary sphere. Its hit probability p_s is only 1.8 to 3.6 times p for p between 1e-5 and 1e-10 (closed form; Monte Carlo agreed within 1% at a moderate tail). Because u is uniform on the sphere, any sampler that does not depend on u hits the region with average probability at most p_s per query. Outside the region net and spec agree exactly, so no answer carries information about u before a hit, and a union bound gives, for every black-box strategy, adaptive or not, P(hit the region within Q net queries) <= Q p_s, averaged over u. Success needs a hit, so this is the black-box ceiling used below.
 
 ### 3.2 Fault ("needle")
 
-One unit n with incoming w_n = G u and bias b_n = -G tau, where u is uniform on the unit sphere, G is set so that the norm of w_n equals g times the median teacher-unit norm (g = 3 default), and tau = c R is chosen so that the activation region A = {x in the ball : u.x > tau} has uniform mass exactly p. In closed form p = 0.5 I_{1-c^2}((d+1)/2, 1/2), with I the regularised incomplete beta function, and c is solved for each target p [G1]. The mass of A under uniform sampling on the boundary sphere, p_s = 0.5 I_{1-c^2}((d-1)/2, 1/2), is computed too; it governs the strongest black-box fuzzer (S1b). The outgoing weight v_n is set so the median fault magnitude inside A is 2.0 [G1]. Both closed forms are checked against Monte Carlo (p >= 1e-4) or importance sampling within 5% [G1].
+One unit n with incoming w_n = G u and bias b_n = -G tau, where u is uniform on the unit sphere, G is set so that the norm of w_n equals g times the median teacher-unit norm (g = 3 default), and tau = c R is chosen so that the activation region A = {x in the ball : u.x > tau} has uniform mass exactly p. In closed form p = 0.5 I_{1-c^2}((d+1)/2, 1/2), with I the regularised incomplete beta function, and c is solved for each target p (solver fixed at G1, section 13). The mass of A under uniform sampling on the boundary sphere, p_s = 0.5 I_{1-c^2}((d-1)/2, 1/2), is computed too; it governs the strongest black-box fuzzer (S1b). The outgoing weight v_n is set so the median fault magnitude inside A is 2.0 (fixed at G1): |v_n| = 2.0 / (G R (s_med - c)), where s_med is the median of u.x / R over A. All four closed forms (p, p_s, p_V, p_Vs) are checked against Monte Carlo (value >= 1e-4) or importance sampling within 5%; at G1 all 288 such checks passed, worst relative error 3.5%.
 
-Violation: |net(x) - spec(x)| > Delta at some x in the ball, with Delta = 0.5 [G1]. Outside A the needle contributes exactly zero. The violation set V is a cap inside A with uniform mass p_V and boundary-sphere mass p_Vs, both in closed form (p_V is about 0.84 p at median fault magnitude 2.0 and Delta = 0.5).
+Violation: |net(x) - spec(x)| > Delta at some x in the ball, with Delta = 0.5 (fixed at G1). Outside A the needle contributes exactly zero. The violation set V is a cap inside A with uniform mass p_V and boundary-sphere mass p_Vs, both in closed form (p_V is about 0.84 p at median fault magnitude 2.0 and Delta = 0.5).
 
 Minimal repair: set v_n = 0.
 
@@ -41,7 +43,7 @@ Clean networks contain no needle. The needle slot holds a benign filler unit (le
 
 ### 3.3 Filler units and equivalence levels
 
-- **O0.** Natural scale, no scrambling. The remaining units are benign: cancelling pairs (identical incoming form, opposite outgoing weights) and dead units, all at teacher scale.
+- **O0.** Natural scale, no rescaling; units are placed in uniformly random order (as at every level), so the index carries no information. The remaining units are benign: cancelling pairs (identical incoming form, opposite outgoing weights) and dead units, all at teacher scale.
 - **O1.** O0 plus a random permutation and random positive rescaling of every hidden unit: s_j = 2^k_j with k_j uniform on {-6, ..., 6}; incoming weights and bias multiplied by s_j, outgoing weight divided by s_j.
 - **O2.** O1 with mimic decoys: filler units given needle-like incoming norms and large outgoing weights. Half are dead (b_j + R ||w_j||_2 <= -margin, margin >= 0.05, so never active on the ball); half are cancelling pairs whose shared incoming form is alive on a rare region but whose outputs cancel exactly.
 - **O3 (scripted only).** O2 with the needle split into two units that have the same normalised incoming form and outgoing weights that sum to v_n.
@@ -49,7 +51,7 @@ Clean networks contain no needle. The needle slot holds a benign filler unit (le
 ### 3.4 Exactness checks (G1 gate)
 
 1. Float64: for every level, max |f_transformed(x) - f_original(x)| < 1e-9 on 10^6 uniform points in the ball.
-2. Serialised: weights printed at 6 significant digits; max deviation of the serialised network from the original is below 1e-3 times the median fault magnitude, on 10^6 uniform points plus 10^5 points inside each needle region A (drawn exactly: the marginal along u truncated to the cap, uniform on the orthogonal slice).
+2. Serialised: weights printed at 8 significant digits in a fixed-width format (6 in drafts before 2026-11-24; see the G1 revision note); max deviation of the serialised network from the original is below 1e-3 times the median fault magnitude, on 10^6 uniform points plus 10^5 points inside each needle region A (drawn exactly: the marginal along u truncated to the cap, uniform on the orthogonal slice).
 3. The closed-form p, p_s, p_V and p_Vs agree within 5% with Monte Carlo (value >= 1e-4) or importance sampling (value < 1e-4).
 4. No leakage: a classifier given unit index and metadata predicts the needle no better than chance + 0.05 on 200 networks. Adversarial leak tests also pass: (a) seed recovery: an attacker who knows the generator code tries to recover the generator seed from the published weights by searching the seed space used; generation seeds come from a 256-bit secret, so success must be nil; (b) linkage: blind task IDs, file names, ordering and serialisation of equivalent copies of one network do not let an attacker pair them better than chance + 0.05; (c) no truth fields: the blind package is built from an allowlist and its reader rejects unknown fields.
 5. Isolation: introspection tests show the child process cannot reach teacher weights, and in black-box mode cannot reach network weights.
@@ -156,5 +158,27 @@ Toy networks only. The transformations are standard exact symmetries. No tooling
 
 ## 13. Frozen at G1 or G3
 
-- [G1] sigma, the radius rule R_d, g, Delta, fault magnitude, decoy margins, exact counts of filler and decoy units, sampler for u, the solver for c.
+- [G1] Fixed 2026-11-24 (testbed/constants.py):
+
+  | constant | value |
+  |---|---|
+  | R_d | sqrt((d + 2) / 3): 3.367 at d = 32, 2.449 at d = 16 |
+  | H, teacher units | 96, 24 |
+  | sigma; teacher bias, outgoing and output-bias sd | 1.5; 0.5, sqrt(1/24), 0.5 |
+  | g (default; grid) | 3; {1, 3, 10}, times the network's median teacher-unit norm |
+  | fault magnitude | median of the absolute fault over A = 2.0; v_n sign random |
+  | Delta | 0.5 |
+  | u | standard normal, normalised |
+  | solver for c | inverse regularised incomplete beta, refined by Brent's method on log p (relative error < 1e-9) |
+  | rescaling (O1 to O3) | s_j = 2^k, k uniform on {-6, ..., 6} |
+  | benign dead units | teacher-like incoming weights; bias set so b + R ||w|| = -m, m ~ U[0.05, 1.0] |
+  | dead mimics | incoming norm G x LogU[0.8, 1.25]; b + R ||w|| = -m, m ~ U[0.05, 0.5]; |outgoing| = |v_n| x LogU[0.5, 2], random sign |
+  | cancelling-pair mimics | incoming norm G x LogU[0.8, 1.25]; live region mass LogU[1e-12, 1e-2]; outgoing +a, -a with a = |v_n| x LogU[0.5, 2] |
+  | decoy reference in clean networks | the needle that p = 1e-5 would have (G = 3 x median teacher norm) |
+  | O3 split | v_n split as (lambda v_n, (1 - lambda) v_n), lambda ~ U[0.2, 0.8] |
+  | composition, faulty (O0/O1; O2; O3) | 24 teacher, 1 needle, 24 benign pairs, 23 benign dead; 24 teacher, 1 needle, 8 dead mimics, 4 mimic pairs, 20 benign pairs, 15 benign dead; as O2 with the needle split in 2 and 14 benign dead |
+  | composition, clean | the needle slot holds one more benign dead unit (O0/O1) or one more dead mimic (O2/O3) |
+  | "cancelling only" decoys (C4) | the 8 dead mimics become 4 more mimic pairs; clean networks get one more benign dead unit |
+  | serialisation | 8 significant digits, fixed width 14 characters |
+  | randomness | each network from a 256-bit secret (secrets.token_bytes(32)) via numpy SeedSequence; task IDs are independent 128-bit random tokens |
 - [G3] model revisions, sampler settings, harness commit hash, caps, the explicit-instruction wording, measured throughput (tokens per second; sandbox numpy evaluations per second) and the hard-cell p it implies (section 7): fixed early, at G0, at p = 1e-12 (decision D6/F1).
