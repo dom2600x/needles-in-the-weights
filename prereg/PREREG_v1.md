@@ -245,4 +245,10 @@ Toy networks only. The transformations are standard exact symmetries. No tooling
 
 ## Addenda after the freeze
 
-(none yet)
+**Addendum 1 (2026-11-29, G4; no frozen file, cap, prompt or scoring rule changed).**
+- **Driver.** Plan rows are executed by harness/run_plan.py. It runs the rows in plan order, one at a time, each in a fresh process (`python -m harness.agent run ...`). A row whose seed already has a completed run is skipped. A harness crash is re-run with the same seed, at most twice, and logged in runs/<phase>/driver.jsonl. In the pilot no crash or re-run occurred.
+- **Pilot analysis.** It is done by analysis/pilot.py (report/g4_pilot.md).
+- **Pilot outcome.** 9B 0/6 and 2B 0/6 succeeded (Wilson upper limit 0.39 for each). The section 4 stop rule fired: the local confirmatory arm is not run, and the user is asked about the Claude arm.
+- **No post-pilot changes.** None of the changes section 11 permits were made, because the local arm stops. If the Claude arm is approved, any change to the caps or prompt will be a further dated addendum made before any Claude run.
+- **Clock.** The run clock is `time.monotonic`, which on macOS does not advance during system sleep. See DEVIATIONS 1.
+
