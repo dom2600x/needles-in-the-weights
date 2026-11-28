@@ -1,7 +1,7 @@
 # STATUS
 
 ## Current gate
-G3 Freeze: complete (session 6, 2026-11-28). prereg/PREREG_v1.md committed as c7173e4b272bf73a7df540c1b175409974eaae6d at 2026-11-28T11:19:45Z on claude/g3-freeze (harness commit 6362f7c8a9bedab02e91a20c5f28f91ca973e6b2). Awaiting the user's review and merge. Stopped at the end of G3. Next: G4 pilot (12 runs at p = 1e-2, O0, 9B + 2B), which needs the user's explicit go.
+G4 Pilot: complete (session 7, 2026-11-29); branch claude/g4-pilot. **The stop rule fired: 9B 0/6 and 2B 0/6.** The local confirmatory arm will not be run. Stopped at the end of G4. The user is asked whether to run the Claude arm. That arm needs the user's go at G5, and the canary and tool-restriction checks run first.
 
 ## Log
 - 2026-11-23: Repository initialised with project instructions, pre-registration draft v0 and testbed/domain_check.py. No data collected.
@@ -97,11 +97,27 @@ G3 Freeze: complete (session 6, 2026-11-28). prereg/PREREG_v1.md committed as c7
   - Claude arm: still conditional; the canary and the two-tool restriction check run only after the user's go at G5.
   - User said "Go, commit v1". PREREG_v1 committed as c7173e4b272bf73a7df540c1b175409974eaae6d, 2026-11-28T11:19:45Z (rule 2). From here on: dated addenda and prereg/DEVIATIONS.md only.
 
+- 2026-11-29 (session 7): G4 pilot. The user merged PR #5 and said "go for G4 pilot".
+  - **Tasks.** Built 6 pilot tasks and 12 planned runs (harness/build_tasks.py pilot). Truth hashes are in analysis/manifests/truth_pilot.sha256.
+  - **Execution.** I ran the plan with the new driver harness/run_plan.py (PREREG addendum 1), from 2026-11-28T11:25Z to 16:01:47Z. There were 0 crashes and 0 re-runs.
+  - **Scoring.** analysis/pilot.py produced report/g4_pilot.md and runs/pilot/scores.jsonl (runs/ is gitignored; its hashes are in analysis/manifests/pilot_runs.sha256). Truth was read only through harness/score.py, after every run had ended.
+  - **Results.** 9B: 0/6 succeeded, with 1 wrong answer (faulty = False) and 5 timeouts. 2B: 0/6 succeeded, with 6 timeouts. No runs were localised or repaired, and there were no accepted forced-turn answers.
+  - **Stop rule** (PREREG section 4): every local model was below 10%, so the local arm stops. No post-pilot changes were made.
+  - **Hand reading.** I read all 12 flagged cells. They contain `while True` sampling loops, one blocked scipy import and one globals() listing. There are no violations, no invalid runs and no refusal candidates.
+  - **Failure modes**, detailed in report/g4_pilot.md:
+    - The 2B never wrote a code block in 69 turns.
+    - The 9B in mode W got W1's orientation wrong.
+    - The 9B in mode B exhausted net one point at a time. Every B run saw a gap above 0.5, but none submitted a counterexample.
+    - The 512-token forced turn ran out once while the model was typing a 32-coordinate counterexample.
+  - **Deviation 1.** Idle sleep paused rows 10 and 11. The caps were measured on awake time, so no outcome is affected.
+  - **Notification.** The push notification was not delivered because Remote Control was inactive.
+
 ## Blockers
 - ~~B1~~ resolved in session 3 (native macOS shell).
 - ~~B2~~ resolved: packages installed and models downloaded (session 3).
 
 ## Decisions pending from the user
+- D7 (G4 stop rule): run the conditional Claude arm (PREREG section 7: canary and two-tool check first, then 40 runs), or end the LLM arm and write up G2 plus the pilot?
 - ~~D2~~ resolved: installs and downloads work; approved and done in session 3.
 - ~~D3~~ decided 2026-11-24 (delegated): yes, conditionally; see prereg/G0_DECISIONS.md.
 - ~~D6~~ decided 2026-11-24 (delegated): hard cell p = 1e-12; caps unchanged, with a warning and a forced final turn; see prereg/G0_DECISIONS.md.
