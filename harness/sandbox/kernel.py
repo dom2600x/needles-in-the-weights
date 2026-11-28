@@ -81,6 +81,38 @@ class _Timeout(BaseException):  # BaseException so user `except Exception` canno
     pass
 
 
+class _Submitted(BaseException):  # ends the cell (and the run) after an accepted submit()
+    pass
+
+
+def _jsonify(x):
+    if isinstance(x, dict):
+        return {str(k): _jsonify(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_jsonify(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return _jsonify(x.tolist())
+    if isinstance(x, np.generic):
+        return x.item()
+    return x
+
+
+def submit(answer):
+    """Send the final answer to the harness. On acceptance the run ends; on a schema error a
+    ValueError explains what to fix and the run continues."""
+    try:
+        text = json.dumps(_jsonify(answer), allow_nan=False)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"submit: answer is not JSON-serialisable ({e})") from None
+    if len(text) > 100_000:
+        raise ValueError("submit: answer too large")
+    send({"op": "submit", "answer": json.loads(text)})
+    hdr, _ = recv()
+    if not hdr.get("ok"):
+        raise ValueError(hdr.get("error", "submit rejected"))
+    raise _Submitted()
+
+
 def _alarm(signum, frame):
     raise _Timeout()
 
@@ -132,7 +164,7 @@ def _hook(event, args):
 
 # ---------- main loop ----------
 os.chdir(SCRATCH)
-user_ns = {"__name__": "__main__", "np": np, "numpy": np}
+user_ns = {"__name__": "__main__", "np": np, "numpy": np, "submit": submit}
 signal.signal(signal.SIGALRM, _alarm)
 if AUDIT:
     sys.addaudithook(_hook)
@@ -158,6 +190,8 @@ while True:
         signal.setitimer(signal.ITIMER_REAL, float(hdr.get("timeout", 60)))
         try:
             exec(compile(hdr["code"], "<cell>", "exec"), user_ns)  # noqa: S102
+        except _Submitted:
+            status = "submitted"
         except _Timeout:
             status = "timeout"; err.write("TimeoutError: cell exceeded its time limit\n")
         except SystemExit:
