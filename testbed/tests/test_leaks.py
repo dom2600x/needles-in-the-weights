@@ -1,3 +1,4 @@
+import re
 """PREREG 3.4 check 4: no leakage through unit index, metadata, seeds, linkage or truth fields."""
 import json, os, re
 
@@ -134,8 +135,14 @@ def test_blind_text_has_no_truth_values(tmp_path):
         rec = json.load(open(os.path.join(truth, t, "truth.json")))
         for word in ("needle", "teacher", "mimic", "benign", "dead", "pair", "role", "origin", "secret", "scale", "level"):
             assert word not in text.lower(), word
-        for val in (rec["secret_hex"], rec["origin_id"], f"{rec['p']:.6g}", f"{rec['G']: .7e}"):
+        for val in (rec["secret_hex"], rec["origin_id"]):
             assert str(val) not in text
+        # p and G must not appear as a value. Compared as whole numeric tokens: since the O1
+        # rescale range was widened to 2^+-48 (G2 fix), weights reach 1e-12 and a substring test
+        # would match e.g. "...1e-12" inside an unrelated weight.
+        nums = {float(t) for t in re.findall(r"[-+]?\d\.?\d*(?:[eE][-+]?\d+)?", text)}
+        for val in (rec["p"], rec["G"]):
+            assert not any(abs(n - val) <= 1e-9 * abs(val) for n in nums), val
         assert ser.read_blind(os.path.join(blind, t))["task_id"] == t
 
 
