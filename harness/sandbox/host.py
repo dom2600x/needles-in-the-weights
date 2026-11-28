@@ -70,6 +70,9 @@ class SandboxKernel:
         self.rss_cap_kb, self.fsize = int(rss_cap_gb * 1024 * 1024), file_size_cap_mb << 20
         self.blas_threads = int(blas_threads)
         self.tool_used, self.proc, self.info, self._last_check = 0.0, None, None, 0.0
+        # submit(answer) in the child: validate_submit(answer) -> normalised answer, or raises
+        # ValueError whose text goes back to the proposer. Accepted answers land in .submission.
+        self.validate_submit, self.submission = None, None
 
     # ---- framing ----
     def _read_exact(self, n, deadline):
@@ -161,6 +164,11 @@ class SandboxKernel:
         self._send({"op": "setvar", "name": name, "shape": list(a.shape)}, a.tobytes())
         self._recv(time.monotonic() + 10)
 
+    def set_value(self, name, value):
+        """A JSON scalar or list in the child's namespace (e.g. d, R, c)."""
+        self._send({"op": "setvar", "name": name, "value": value})
+        self._recv(time.monotonic() + 10)
+
     def exec(self, code):
         remaining = self.tool_budget - self.tool_used
         if remaining <= 0:
@@ -174,6 +182,9 @@ class SandboxKernel:
                 hdr, data = self._recv(deadline)
                 if hdr.get("op") == "rpc":
                     self._serve_rpc(hdr, data)
+                    continue
+                if hdr.get("op") == "submit":
+                    self._serve_submit(hdr)
                     continue
                 if hdr.get("op") == "result":
                     break
@@ -201,6 +212,17 @@ class SandboxKernel:
                 self._send({"ok": True, "shape": list(y.shape)}, y.tobytes())
         except Exception as e:  # noqa: BLE001  (oracle errors go back to the proposer as text)
             self._send({"ok": False, "error": f"{type(e).__name__}: {e}"})
+
+    def _serve_submit(self, hdr):
+        if self.submission is not None:
+            self._send({"ok": False, "error": "submit: an answer was already accepted"}); return
+        if self.validate_submit is None:
+            self._send({"ok": False, "error": "submit is not available in this session"}); return
+        try:
+            self.submission = self.validate_submit(hdr.get("answer"))
+            self._send({"ok": True})
+        except ValueError as e:
+            self._send({"ok": False, "error": str(e)})
 
     def kill(self):
         if self.proc and self.proc.poll() is None:

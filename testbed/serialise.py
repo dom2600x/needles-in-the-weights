@@ -76,7 +76,12 @@ def read_blind(path):
     if files != BLIND_FILES:
         raise ValueError(f"unexpected files in blind package: {sorted(files ^ BLIND_FILES)}")
     with open(os.path.join(path, "task.json")) as fh:
-        obj = json.load(fh)
+        return read_blind_obj(fh.read())
+
+
+def read_blind_obj(text):
+    """Strict parse of a blind package's task.json text (fields, schema, shapes)."""
+    obj = json.loads(text)
     mode = obj.get("mode")
     if mode not in FIELDS:
         raise ValueError(f"bad mode {mode!r}")
